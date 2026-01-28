@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Live Ganga GPS Tracker</title>
+
+  <!-- Leaflet CSS -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+
+  <style>
+    body { margin: 0; }
+    #map { height: 100vh; width: 100vw; }
+  </style>
+</head>
+
+<body>
+
+<div id="map"></div>
+
+<!-- Leaflet JS (MUST be before your script) -->
+<script
+  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+  crossorigin=""
+></script>
+
+<script>
+  const map = L.map('map').setView([30.1469, 78.5976], 13);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors'
+  }).addTo(map);
+
+  const marker = L.marker([30.1469, 78.5976]).addTo(map);
+
+  const trackLine = L.polyline([], {
+    color: 'blue',
+    weight: 4
+  }).addTo(map);
+
+  async function updateLocation() {
+    const res = await fetch('/api/latest');
+    const data = await res.json();
+
+    if (!data) return;
+
+    const latlng = [data.lat, data.lng];
+
+    marker.setLatLng(latlng);
+    trackLine.addLatLng(latlng);
+    map.panTo(latlng, { animate: true });
+  }
+
+  setInterval(updateLocation, 5000);
+</script>
+
+</body>
+</html>
