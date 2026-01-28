@@ -43,14 +43,14 @@ void setup() {
   }
 }
 
-double lat, lng;
-bool geoFlag = false;
 void loop() {
-
+  double lat, lng;
+  float speed;
+  bool geoFlag;
   while (GPSserial.available() > 0) {
     if (gps.encode(GPSserial.read())) {
-      getLatLong(&lat, &lng);
-      // displayInfo();
+       getGeoData(&lat, &lng, &speed, &geoFlag);
+//       displayInfo();
     }
   }
 
@@ -60,18 +60,9 @@ void loop() {
   }
 
   Serial.print(F("[SX1262] Transmitting packet ... "));
-
-  // Send the message
-  String geoData = "";
-  geoData = "lat:" + String(int(lat) + ", long:" + String(int(lng)));
-  Serial.println(geoData);
+  
   int state;
-  if(geoFlag)
-    state = radio.transmit(geoData);
-  else
-    state = radio.transmit("Hello World!");
-  // state = radio.transmit("Hello World!");
-  // state = radio.transmit(geoData);
+  state = transmitGeoData(lat, lng, speed, &geoFlag);
 
   if (state == RADIOLIB_ERR_NONE) {
     Serial.println(F("finished!"));
@@ -83,51 +74,39 @@ void loop() {
   delay(2000); // Wait 2 seconds before next transmit
 }
 
-void getLatLong(double *lat, double *lng){
-  // Serial.print(F("Location: "));
+void getGeoData(double *lat, double *lng, float *speedKmph, bool *geoFlag) {
   if (gps.location.isValid()) {
     *lat = gps.location.lat();
     *lng = gps.location.lng();
-    geoFlag = true;
+    *speedKmph = gps.speed.kmph();  // km/h
+
+    *geoFlag = true;
   } else {
-    Serial.print(F("INVALID"));
-    geoFlag = false;
+    *geoFlag = false;
   }
 }
-void displayInfo() {
-  Serial.print(F("Location: "));
-  if (gps.location.isValid()) {
-    Serial.print(gps.location.lat(), 6);
-    Serial.print(F(", "));
-    Serial.print(gps.location.lng(), 6);
-  } else {
-    Serial.print(F("INVALID"));
+
+int transmitGeoData(double lat, double lng, float speed, bool geoFlag) {
+  int state;
+  if(!geoFlag){
+     state = radio.transmit("INVALID");
+     return state;
   }
+    
+  int32_t lat_i   = (int32_t)(lat * 100000);   // ~1m accuracy
+  int32_t lng_i   = (int32_t)(lng * 100000);
+  uint16_t spd_i  = (uint16_t)(speed * 10);    // 0.1 km/h
 
-  // Serial.print(F("  Date/Time: "));
-  // if (gps.date.isValid()) {
-  //   Serial.print(gps.date.day());
-  //   Serial.print(F("/"));
-  //   Serial.print(gps.date.month());
-  //   Serial.print(F("/"));
-  //   Serial.print(gps.date.year());
-  // } else {
-  //   Serial.print(F("INVALID"));
-  // }
+  String payload = "";
+  payload += String(lat_i);
+  payload += ",";
+  payload += String(lng_i);
+  payload += ",";
+  payload += String(spd_i);
 
-  // Serial.print(F(" "));
-  // if (gps.time.isValid()) {
-  //   if (gps.time.hour() < 10) Serial.print(F("0"));
-  //   Serial.print(gps.time.hour());
-  //   Serial.print(F(":"));
-  //   if (gps.time.minute() < 10) Serial.print(F("0"));
-  //   Serial.print(gps.time.minute());
-  //   Serial.print(F(":"));
-  //   if (gps.time.second() < 10) Serial.print(F("0"));
-  //   Serial.print(gps.time.second());
-  // } else {
-  //   Serial.print(F("INVALID"));
-  // }
+  Serial.print("TX: ");
+  Serial.println(payload);
 
-  Serial.println();
+  state = radio.transmit(payload);
+  return state;
 }
